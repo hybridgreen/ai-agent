@@ -1,17 +1,16 @@
-from functions.functions import get_files_info, get_file_content , write_file
+from functions.functions import get_files_info, get_file_content , write_file, run_python_file
 
 def test_calculator():
-    result = write_file("calculator", "lorem.txt", "wait, this isn't lorem ipsum")
-    print (f'File length: {len(result)} \nFile content:{result}')
+    result = run_python_file('calculator','main.py' )
+    print (f'Output:{result}')
 
-    result = write_file("calculator", "pkg/morelorem.txt", "lorem ipsum dolor sit amet")
-    print (f'File length: {len(result)} \nFile content:{result}')
+    result = run_python_file("calculator", "tests.py")
+    print (f'Output:{result}')
 
-    result = write_file("calculator", "/tmp/temp.txt", "this should not be allowed")
-    print (f'File length: {len(result)} \nFile content:{result}')    
-    pass
+    result = run_python_file("calculator", "../main.py")
+    print (f'Output:{result}')
 
-
-
+    result = run_python_file("calculator", "nonexistent.py")
+    print (f'Output:{result}')
 if __name__ == "__main__":
     test_calculator()
