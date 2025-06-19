@@ -1,36 +1,130 @@
 import os , sys
 from google import genai
-from google.genai import types # type: ignore 
-from dotenv import load_dotenv # type: ignore
+from google.genai import types
+from dotenv import load_dotenv
 
 def main():
 
-    3
-    model = "gemini-2.0-flash-001"
     load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    client = genai.Client(api_key=api_key)
+    args = sys.argv.copy()
 
-    if len(sys.argv) < 2:
+    SYSTEM_PROMPT = """
+    You are a helpful AI coding agent.
+    When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
+    - List files and directories
+    - Read file contents
+    - Execute Python files with optional arguments
+    - Write or overwrite files
+    All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+    """
+
+    model_name = "gemini-2.0-flash-001"
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+
+    client = genai.Client(api_key=api_key)
+    
+
+    schema_get_files_info = types.FunctionDeclaration(
+        name="get_files_info",
+        description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "directory": types.Schema(
+                    type=types.Type.STRING,
+                    description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
+                ),
+            },
+        ), 
+    )
+    
+    schema_get_file_content = types.FunctionDeclaration(
+        name="get_file_content",
+        description="Prints out the content of files, constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The directory to read files from, relative to the working directory.",
+                ),
+            },
+        ), 
+    )
+
+    schema_run_python_file = types.FunctionDeclaration(
+        name="run_python_file",
+        description="Runs a .py file and returns it's output and errors if any; constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The path of the file to run, relative to the working directory.",
+                ),
+            },
+        ), 
+    )
+
+    schema_write_file = types.FunctionDeclaration(
+        name="write_file",
+        description="Write a file to the provided path, if the provided path is a sub directory, creates it and returns an error. Constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The path of the file to be writen, creating a new directory and subdirectory if provided with a directory path. Caution, it will overwrite any previous file"),
+                "content": types.Schema(
+                    type=types.Type.STRING,
+                    description="The content of the file to be writen.",
+                ),
+            },
+        ), 
+    )
+
+    available_functions = types.Tool(
+        function_declarations=[
+            schema_get_files_info,
+            schema_get_file_content,
+            schema_run_python_file,
+            schema_write_file
+        ]
+    )
+
+    config=types.GenerateContentConfig(
+        tools=[available_functions], system_instruction=SYSTEM_PROMPT
+    )
+
+    if len(args) < 2:
         print("AI Code Assistant")
         print('\nUsage: python main.py "your prompt here" [--verbose]')
         print('Example: python main.py "How do I build a calculator app?"')
         sys.exit(1)
+        
+    client = genai.Client(api_key=api_key)
 
     messages = [
-        types.Content(role="user", parts=[types.Part(text=sys.argv[1])]),
+        types.Content(role="user", parts=[types.Part(text=args[1])]),
     ]
 
-    response = client.models.generate_content(model=model,contents = messages)
+    response = client.models.generate_content(
+        model=model_name,
+        contents=messages,
+        config=config,
+)
+    if response.function_calls:
+        for call in response.function_calls:
+            print(f"Calling function: \"{call.name}({call.args})\"")
+    else:
+        print(response.text)
 
-    if len(sys.argv) >= 3:
-        match sys.argv[2]:
-            case "--verbose":
-                print(f"User prompt: {sys.argv[1]}")
-                print("Prompt tokens:",response.usage_metadata.prompt_token_count)
-                print("Response tokens:",response.usage_metadata.candidates_token_count)
+    if "--verbose" in args:
+        print(f"User prompt: {args[1]}")
+        print("Prompt tokens:",response.usage_metadata.prompt_token_count)
+        print("Response tokens:",response.usage_metadata.candidates_token_count)
                 
-    print(response.text)
     
 if __name__ == "__main__":
-    main
+    main()
