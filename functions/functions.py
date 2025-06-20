@@ -36,8 +36,6 @@ def get_file_content(working_directory, file_path):
             return document
     except Exception as e:
          return f'Error:{e}'
-    
-    pass
 
 def write_file(working_directory, file_path, content):
 
@@ -88,4 +86,4 @@ def run_python_file(working_directory, file_path):
 
     except Exception as e:
          return f"Error: executing Python file: {e}"
-    pass
+
