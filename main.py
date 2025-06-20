@@ -1,7 +1,7 @@
 import os , sys
 from google import genai
 from google.genai import types
-from dotenv import load_dotenv
+from dotenv import load_dotenv 
 from functions.functions import *
 
 def call_function(function_call_part, verbose=False):
@@ -43,7 +43,7 @@ def call_function(function_call_part, verbose=False):
                             ],
                         )
 
-def generate_content(args):
+def generate_content(client, messages, verbose):
 
     SYSTEM_PROMPT = """
         You are a helpful AI coding agent.
@@ -126,40 +126,44 @@ def generate_content(args):
     config=types.GenerateContentConfig(
         tools=[available_functions], system_instruction=SYSTEM_PROMPT
     )
-
-    messages = [
-        types.Content(role="user", parts=[types.Part(text=args[1])]),
-    ]
     
     model_name = "gemini-2.0-flash-001"
-
-    api_key = os.environ.get("GEMINI_API_KEY")
-
-    client = genai.Client(api_key=api_key)
 
     response = client.models.generate_content(
         model=model_name,
         contents=messages,
         config=config,
 )
-    if response.function_calls:
-        for call in response.function_calls:
-            if "--verbose" in args:
+    
+    if verbose:
+        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+        print("Response tokens:", response.usage_metadata.candidates_token_count)
+
+    if response.candidates:
+        for candidate in response.candidates:
+            messages.append(candidate.content)
+
+    if not response.function_calls:
+        return response.text
+
+    for call in response.function_calls:
+            if verbose:
                 content = call_function(call, True)
             else:
                 content = call_function(call)
-    else:
-        print(response.text)
 
-    if not content.parts[0].function_response.response:
-        raise Exception("Kaput")
-    else:
+            if not content.parts[0].function_response.response:
+                raise Exception("Kaput")
+            
+            if verbose:
+                print(f"-> {content.parts[0].function_response.response['result']}")
+            messages.append(content)
 
-        if "--verbose" in args:
-            print(f"-> {content.parts[0].function_response.response['result']}")
-    pass
+    return 
 
 def main():
+
+    verbose = "--verbose" in sys.argv
 
     sys_args = sys.argv.copy()
 
@@ -170,8 +174,28 @@ def main():
         sys.exit(1)
     
     load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY")
+    client = genai.Client(api_key=api_key)
+
+    messages = [
+        types.Content(role="user", parts=[types.Part(text=sys_args[1])]),
+    ]
     
-    generate_content(sys_args)
+    iters = 0
+    MAX_ITERS = 20
+    while True:
+        iters +=1
+        if iters > MAX_ITERS:
+            print(f"Maximum iterations ({MAX_ITERS}) reached.")
+            sys.exit(1)
+        try:
+            final_response = generate_content(client, messages, verbose)
+            if final_response :
+                print("Final response:")
+                print(final_response)
+                break
+        except Exception as e:
+            print (f'Error in generate_content: {e}')
                 
     
 if __name__ == "__main__":

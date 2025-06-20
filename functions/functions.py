@@ -1,6 +1,6 @@
 import os , subprocess
 
-def get_files_info(working_directory, directory=None):
+def get_files_info(working_directory, directory=''):
     abs_working_dir = os.path.abspath(working_directory)
     target_dir = os.path.join(abs_working_dir,directory)
     if not target_dir.startswith(abs_working_dir):
@@ -19,7 +19,7 @@ def get_files_info(working_directory, directory=None):
         except Exception as e:
             print(f"Error: {e}")
 
-def get_file_content(working_directory, file_path):
+def get_file_content(working_directory, file_path=''):
     abs_working_dir = os.path.abspath(working_directory)
     abs_file_path = os.path.abspath(os.path.join(working_directory,file_path))
     
